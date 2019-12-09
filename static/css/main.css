@@ -1,0 +1,90 @@
+/* FONTS */
+@font-face {
+    font-family: Hanzi;
+    src: url('/static/MSMincho.ttf');
+    unicode-range: U+3000-9FFF;
+}
+
+/* HEADER */
+.header {
+    /* background-color: gray; */
+    background-color: black;
+    padding: 20px;
+    color:white;
+}
+
+.header h1 {
+    font-family: 'Hanzi';
+
+}
+
+.header p {
+    font-style:italic;
+    font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+}
+
+
+/* KEYBOARD */
+ #keyboard {
+    /* background-color: cornsilk; */
+    margin-top:100px;
+    height:600px;
+} 
+
+/* OPTIONS */
+#options {
+    overflow: hidden;
+    border:2px solid gray;
+    height:30px;
+    width:90%;
+    margin-bottom:20px;
+}
+#options button {
+    font-size: 20px;
+    font-family: Hanzi;
+    margin: 1px;
+}
+#options button.plain {
+    background-color: rgb(209, 209, 209);
+}
+#options button.highlight, #options button:hover {
+    background-color:rgb(255, 233, 173);
+}
+
+#keyboard input {
+    font-size: 24px;
+    font-family: Hanzi, Verdana, Geneva, Tahoma, sans-serif;
+    width:100%; 
+}
+
+
+/* LAYOUT */
+.column {
+    float:left;
+    padding: 10px;
+}
+.column.side {
+    width: 15%;
+}
+.column.middle {
+    width: 65%;
+}
+.row:after {
+    content: "";
+    display: table;
+    clear: both;
+}
+@media screen and (max-width: 600px) {
+    .column.side, .column.middle {
+        width: 100%;
+    }
+}
+
+
+/* FOOTER */
+/* .footer {
+    background-color: gray;
+    text-align:center;
+    color:white;
+    padding: 10px;
+} */
