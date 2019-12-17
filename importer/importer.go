@@ -2,40 +2,30 @@ package importer
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"regexp"
 	"strings"
 
-	"github.com/dave-yates/jianpan/dictionary"
+	"github.com/dave-yates/jianpan/chinese"
+	"github.com/dave-yates/jianpan/db"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
-//ImportData reads text files in the resources folder and builds the dictionary
-func ImportData() dictionary.Dictionary {
-	var dict dictionary.Dictionary
+//Import reads text files in the resources folder and inserts into mongodb
+func Import(ctx context.Context) error {
 
-	//change to user controlled later
-	dict.Simplified = false
-
+	//import
 	for i := 1; i <= 6; i++ {
-		importFromFile(fmt.Sprintf("resources/HSK%v.txt", i), &dict)
+		importFromFile(ctx, fmt.Sprintf("resources/HSK%v.txt", i))
 	}
 
-	//dict.SortByPinyin()
-
-	//print for testing
-	// for _, item := range dict.Items {
-	// 	fmt.Printf("%v\n", item.Pinyin)
-	// 	for _, char := range item.Chars {
-	// 		fmt.Printf("\t%c\t%v\n", char.Traditional, char.Frequency)
-	// 	}
-	// }
-
-	return dict
+	return nil
 }
 
-func importFromFile(filename string, dict *dictionary.Dictionary) {
+func importFromFile(ctx context.Context, filename string) {
 
 	fmt.Printf("reading from file: %v\n", filename)
 
@@ -49,73 +39,114 @@ func importFromFile(filename string, dict *dictionary.Dictionary) {
 
 	for scanner.Scan() {
 		s := strings.Split(scanner.Text(), "\t")
-		processEntry(s, dict)
-
+		translations := processEntry(s)
+		addTranslations(ctx, translations)
 	}
 }
 
-func processEntry(s []string, dict *dictionary.Dictionary) {
+func addTranslations(ctx context.Context, translations chinese.Translations) {
+	for _, item := range translations.Items {
 
-	for i := range s {
-		s[i] = strings.ToLower(strings.TrimSpace(s[i]))
-	}
-
-	//add characters with multiple pronunciations separately
-	if strings.Contains(s[2], ",") {
-		re := regexp.MustCompile(",")
-		pinyin := re.Split(s[2], -1)
-
-		for i := range pinyin {
-			newStr := []string{s[0], s[1], pinyin[i]}
-			addEntry(newStr, dict)
+		value := bson.D{
+			{Key: "pinyin", Value: item.Pinyin},
+			{Key: "simplified", Value: item.Simplified},
+			{Key: "traditional", Value: item.Traditional},
 		}
-		return
-	}
 
-	addEntry(s, dict)
+		db.Insert(ctx, value)
+	}
 }
 
-func addEntry(s []string, dict *dictionary.Dictionary) {
+type input struct {
+	entries []entry
+}
 
-	//clean up validation
-	//how many runes?
-	//check pinyin for lenth ==1 route
-	//what about multiple pronunciations and multi chars?
+type entry struct {
+	pinyin   string
+	simpChar string
+	tradChar string
+}
 
-	simpChars := []rune(s[0])
-	tradChars := []rune(s[1])
+func processEntry(s []string) chinese.Translations {
 
-	length := len(simpChars)
-	//if it's only one character then add
+	var translations chinese.Translations
+	translations.Items = make([]chinese.Item, 0)
+
+	var results input
+	results.entries = make([]entry, 0)
+
+	//split on multiple pronuciations (i.e comma in the pinyin)
+	results = processPronunciations(s)
+
+	//split on phrases (i.e entry is multiple chars and not a single character)
+	translations = processPhrases(results)
+
+	//validate final result
+	//number of runes
+	//regex see processpronunciation commented out bit
+	//see google doc
+
+	//return results
+	return translations
+}
+
+func processPronunciations(s []string) input {
+
+	var results input
+
+	//split on comma
+	re := regexp.MustCompile(",")
+	pinyin := re.Split(s[2], -1)
+
+	for _, v := range pinyin {
+		results.entries = append(results.entries, entry{v, s[0], s[1]})
+	}
+
+	return results
+}
+
+func processPhrases(in input) chinese.Translations {
+
+	var results chinese.Translations
+
+	for _, e := range in.entries {
+
+		simpChars := []rune(e.simpChar)
+		tradChars := []rune(e.tradChar)
+
+		length := len(simpChars)
+
+		//split pinyin into single words
+		pinyins := processPinyin(e.pinyin, length)
+
+		if length != len(tradChars) || length != len(pinyins) {
+			panic(fmt.Sprintf("invalid input. Number of characters and number of pinyin translations do not match"))
+		}
+
+		for i := 0; i < length; i++ {
+			results.Items = append(results.Items, chinese.NewItem(pinyins[i], simpChars[i], tradChars[i]))
+		}
+	}
+
+	return results
+}
+
+func processPinyin(romanisation string, length int) []string {
+
+	romanisation = strings.ToLower(strings.TrimSpace(romanisation))
+
 	if length == 1 {
-		dict.AddtoDictionary(s[2], simpChars[0], tradChars[0])
-		return
+		return []string{romanisation}
 	}
-
-	//otherwise separate into single characters before adding
-	//pinyin first
-	romanisation := processPinyin(s, length)
-
-	if len(simpChars) != len(tradChars) || len(simpChars) != len(romanisation) {
-		panic(fmt.Sprintf("invalid input. Characters and translation lengths don't match"))
-	}
-
-	for i := 0; i < len(tradChars); i++ {
-		dict.AddtoDictionary(romanisation[i], simpChars[i], tradChars[i])
-	}
-
-}
-
-func processPinyin(s []string, length int) []string {
 
 	//split on number to separate pinyin for characters
 	re := regexp.MustCompile("[0-9]+")
 
 	//this split leaves an empty trailing slice entry
-	pinyin := re.Split(s[2], length+1)
-	tones := re.FindAllString(s[2], length)
+	pinyin := re.Split(romanisation, length+1)
+	tones := re.FindAllString(romanisation, length)
 
-	var romanisation []string
+	var results []string
 
 	for i := 0; i < length; i++ {
 
@@ -125,7 +156,7 @@ func processPinyin(s []string, length int) []string {
 		// 	panic(fmt.Sprintf("invalid character in import file %v", pinyin))
 		// }
 
-		romanisation = append(romanisation, pinyin[i]+tones[i])
+		results = append(results, pinyin[i]+tones[i])
 	}
-	return romanisation
+	return results
 }
