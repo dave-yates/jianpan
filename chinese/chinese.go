@@ -3,6 +3,7 @@ package chinese
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/dave-yates/jianpan/db"
 )
@@ -11,8 +12,6 @@ import (
 type Translations struct {
 	Items []Item `bson:"items" json:"items"`
 }
-
-//var Phrases []Phrase
 
 //Item contains a pinyin string and a slice of characters
 type Item struct {
@@ -37,7 +36,11 @@ type Result struct {
 }
 
 //Translate takes a search string plus a context and returns a slice of chinese characters
-func Translate(ctx context.Context, search string) ([]byte, error) {
+func Translate(search string) ([]byte, error) {
+
+	//context
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
 	//validate input
 	if search == "" {

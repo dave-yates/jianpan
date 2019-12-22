@@ -9,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
 //Config holds the mongo configuration details
@@ -52,6 +53,19 @@ func Insert(ctx context.Context, data bson.D) error {
 		log.Fatal(err)
 	}
 	return nil
+}
+
+//EnsureIndex sets the index on the pinyin field of the collection
+func EnsureIndex(ctx context.Context) error {
+
+	key := bsonx.MDoc{"pinyin": bsonx.Int32(1)}
+	model := mongo.IndexModel{
+		Options: nil,
+		Keys:    key,
+	}
+	_, err := collection.Indexes().CreateOne(ctx, model, nil)
+
+	return err
 }
 
 //GetTranslations takes a context and a search term and returns the results from the database
