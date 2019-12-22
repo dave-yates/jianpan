@@ -81,11 +81,7 @@ func getTranslation(w http.ResponseWriter, r *http.Request) {
 
 	input := r.URL.Query().Get("input")
 
-	//context
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	output, _ := chinese.Translate(ctx, input)
+	output, _ := chinese.Translate(input)
 
 	fmt.Println(string(output))
 

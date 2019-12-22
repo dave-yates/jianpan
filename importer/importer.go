@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -19,19 +18,22 @@ func Import(ctx context.Context) error {
 
 	//import
 	for i := 1; i <= 6; i++ {
-		importFromFile(ctx, fmt.Sprintf("resources/HSK%v.txt", i))
+		err := importFromFile(ctx, fmt.Sprintf("resources/HSK%v.txt", i))
+		if err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return db.EnsureIndex(ctx)
 }
 
-func importFromFile(ctx context.Context, filename string) {
+func importFromFile(ctx context.Context, filename string) error {
 
 	fmt.Printf("reading from file: %v\n", filename)
 
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer file.Close()
 
@@ -42,6 +44,8 @@ func importFromFile(ctx context.Context, filename string) {
 		translations := processEntry(s)
 		addTranslations(ctx, translations)
 	}
+
+	return nil
 }
 
 func addTranslations(ctx context.Context, translations chinese.Translations) {
