@@ -3,6 +3,7 @@ package chinese
 import (
 	"context"
 	"encoding/json"
+	"sort"
 	"time"
 
 	"github.com/dave-yates/jianpan/db"
@@ -13,17 +14,23 @@ type Translations struct {
 	Items []Item `bson:"items" json:"items"`
 }
 
-//Item contains a pinyin string and a slice of characters
+//Item contains an ID,  pinyin string and a slice of characters
 type Item struct {
-	Pinyin string `bson:"pinyin" json:"pinyin"`
-	//Frequency   int    `bson:"_id" json:"frequency"`
-	Simplified  rune `bson:"simplified" json:"simplified"`
-	Traditional rune `bson:"traditional" json:"traditional"`
+	ID          int    `bson:"_id" json:"itemid"`
+	Pinyin      string `bson:"pinyin" json:"pinyin"`
+	Simplified  rune   `bson:"simplified" json:"simplified"`
+	Traditional rune   `bson:"traditional" json:"traditional"`
 }
 
-//NewItem create a new Item from the input
+//NewItem creates a new Item from the input
 func NewItem(pinyin string, simp rune, trad rune) Item {
 	item := Item{Pinyin: pinyin, Simplified: simp, Traditional: trad}
+	return item
+}
+
+//newResultItem creates a new Item including the ID field. Unexported.
+func newResultItem(id int, pinyin string, simp rune, trad rune) Item {
+	item := Item{ID: id, Pinyin: pinyin, Simplified: simp, Traditional: trad}
 	return item
 }
 
@@ -63,7 +70,7 @@ func getTranslation(ctx context.Context, search string) Translations {
 	resultbson := db.GetTranslations(ctx, search)
 
 	for _, item := range resultbson {
-		results.Items = append(results.Items, NewItem(item[1].Value.(string), item[2].Value.(rune), item[3].Value.(rune)))
+		results.Items = append(results.Items, newResultItem(int(item[0].Value.(int32)), item[1].Value.(string), item[2].Value.(rune), item[3].Value.(rune)))
 	}
 	return results
 }
@@ -71,7 +78,7 @@ func getTranslation(ctx context.Context, search string) Translations {
 func sortTranslations(translations Translations, simplified bool) Result {
 	var results Result
 
-	//sortByFrequency(translations)
+	sortByFrequency(translations)
 
 	if simplified {
 		for _, item := range translations.Items {
@@ -125,12 +132,12 @@ func newCharacter(character string, chars *[]string) bool {
 // 	sort.Sort(byPinyin(dict.Items))
 // }
 
-// type byFreq []Char
+type byFreq []Item
 
-// func (a byFreq) Len() int           { return len(a) }
-// func (a byFreq) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-// func (a byFreq) Less(i, j int) bool { return a[i].ID < a[j].ID }
+func (a byFreq) Len() int           { return len(a) }
+func (a byFreq) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a byFreq) Less(i, j int) bool { return a[i].ID < a[j].ID }
 
-// func sortByFrequency(translations []Char) {
-// 	sort.Sort(byFreq(translations))
-// }
+func sortByFrequency(translations Translations) {
+	sort.Sort(byFreq(translations.Items))
+}

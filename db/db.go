@@ -8,7 +8,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/bsonx"
 )
 
@@ -42,12 +41,7 @@ func InitDB(ctx context.Context, client mongo.Client) error {
 //Insert inserts the translation into the mongoDB
 func Insert(ctx context.Context, data bson.D) error {
 
-	opts := options.Update().SetUpsert(true)
-
-	update := bson.D{
-		{Key: "$set", Value: data},
-	}
-	_, err := collection.UpdateOne(ctx, data, update, opts)
+	_, err := collection.InsertOne(ctx, data)
 
 	if err != nil {
 		log.Fatal(err)

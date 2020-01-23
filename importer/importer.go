@@ -13,8 +13,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+var counter int
+
 //Import reads text files in the resources folder and inserts into mongodb
 func Import(ctx context.Context) error {
+
+	counter = 0
 
 	//import
 	for i := 1; i <= 6; i++ {
@@ -52,11 +56,13 @@ func addTranslations(ctx context.Context, translations chinese.Translations) {
 	for _, item := range translations.Items {
 
 		value := bson.D{
+			{Key: "_id", Value: counter},
 			{Key: "pinyin", Value: item.Pinyin},
 			{Key: "simplified", Value: item.Simplified},
 			{Key: "traditional", Value: item.Traditional},
 		}
 
+		counter++
 		db.Insert(ctx, value)
 	}
 }
