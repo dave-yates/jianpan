@@ -9,6 +9,9 @@ COPY / .
 
 RUN go get -v -u go.mongodb.org/mongo-driver/mongo
 
+#test
+RUN go test ./...
+
 #port number to be exposed
 EXPOSE 8080
 

@@ -3,10 +3,12 @@ package chinese
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
 	"github.com/dave-yates/jianpan/db"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 //Translations is a slice of items. Each item is the pinyin and a slice of possible simplified and traditional characters
@@ -45,40 +47,60 @@ type Result struct {
 //Translate takes a search string plus a context and returns a slice of chinese characters
 func Translate(search string) ([]byte, error) {
 
-	//context
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
 	//validate input
-	if search == "" {
-		return nil, nil
+	ok, error := validateSearch(search)
+
+	if !ok {
+		return nil, error
 	}
 
-	translations := getTranslation(ctx, search)
-
-	//setup character type properly
-	simplified := false
-	results := sortTranslations(translations, simplified)
+	results, error := translate(search, db.GetTranslations)
+	if error != nil {
+		return nil, error
+	}
 
 	return jsonConvert(results)
 }
 
-func getTranslation(ctx context.Context, search string) Translations {
+func translate(search string, dbGetFunc func(context.Context, string) ([]bson.D, error)) (Result, error) {
 
-	var results Translations
+	//context
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	resultbson := db.GetTranslations(ctx, search)
+	//translations := getTranslations(ctx, search)
+
+	var translations Translations
+	resultbson, error := dbGetFunc(ctx, search)
+	if error != nil {
+		return Result{}, error
+	}
 
 	for _, item := range resultbson {
-		results.Items = append(results.Items, newResultItem(int(item[0].Value.(int32)), item[1].Value.(string), item[2].Value.(rune), item[3].Value.(rune)))
+		translations.Items = append(translations.Items, newResultItem(int(item[0].Value.(int32)), item[1].Value.(string), item[2].Value.(rune), item[3].Value.(rune)))
 	}
-	return results
+
+	//setup character type properly
+	simplified := false
+	sortByFrequency(translations)
+	results := getResults(translations, simplified)
+
+	results.Search = search
+
+	return results, nil
 }
 
-func sortTranslations(translations Translations, simplified bool) Result {
-	var results Result
+func validateSearch(search string) (bool, error) {
 
-	sortByFrequency(translations)
+	if search == "" {
+		return false, fmt.Errorf("Invalid Search. Search cannot be blank")
+	}
+
+	return true, nil
+}
+
+func getResults(translations Translations, simplified bool) Result {
+	var results Result
 
 	if simplified {
 		for _, item := range translations.Items {
@@ -110,7 +132,7 @@ func jsonConvert(results Result) ([]byte, error) {
 	return json, nil
 }
 
-// //TRANSLATIONS HELPERS
+//TRANSLATIONS HELPERS
 func newCharacter(character string, chars *[]string) bool {
 	for _, char := range *chars {
 		if char == character {
@@ -120,18 +142,7 @@ func newCharacter(character string, chars *[]string) bool {
 	return true
 }
 
-// //SORTING
-// type byPinyin []Item
-
-// func (a byPinyin) Len() int           { return len(a) }
-// func (a byPinyin) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-// func (a byPinyin) Less(i, j int) bool { return a[i].Pinyin < a[j].Pinyin }
-
-// //SortByPinyin sorts the dictionary items from a-z by pinyin
-// func (dict *Translations) SortByPinyin() {
-// 	sort.Sort(byPinyin(dict.Items))
-// }
-
+//SORTING
 type byFreq []Item
 
 func (a byFreq) Len() int           { return len(a) }
