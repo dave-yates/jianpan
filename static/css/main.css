@@ -26,8 +26,8 @@
 
 /* KEYBOARD */
  #keyboard {
-    /* background-color: cornsilk; */
-    margin-top:100px;
+    background-color: rgb(241, 241, 241);
+    padding-top:100px;
     height:600px;
 } 
 
@@ -54,7 +54,7 @@
 #keyboard input {
     font-size: 24px;
     font-family: Hanzi, Verdana, Geneva, Tahoma, sans-serif;
-    width:100%; 
+    width:98%; 
 }
 
 

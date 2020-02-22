@@ -63,7 +63,7 @@ func EnsureIndex(ctx context.Context) error {
 }
 
 //GetTranslations takes a context and a search term and returns the results from the database
-func GetTranslations(ctx context.Context, search string) []bson.D {
+func GetTranslations(ctx context.Context, search string) ([]bson.D, error) {
 
 	pattern := primitive.Regex{Pattern: "^" + search}
 	filter := bson.D{
@@ -77,17 +77,16 @@ func GetTranslations(ctx context.Context, search string) []bson.D {
 	cursor, err := collection.Find(ctx, filter) //, options*/)
 	if err != nil {
 		fmt.Println(err)
-		return nil
+		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	var results []bson.D
 	if err = cursor.All(ctx, &results); err != nil {
 		fmt.Println(err)
-
-		return nil
+		return nil, err
 	}
 
-	return results
+	return results, nil
 
 }
